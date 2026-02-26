@@ -28,11 +28,9 @@ const SignUp = () => {
   const [emailAddress, setEmailAddress] = useState("")
   const [password, setPassword] = useState("")
   const [pendingverification, setPendingVerification] = useState(false)
-  const [code, setCpde] = useState("")
+  const [code, setCode] = useState("")
   const [error, setError] = useState("")
-  const [showPassword, setShowPassword] = useState("")
-
-
+  const [showPassword, setShowPassword] = useState(false)
   const router = useRouter()
 
   if (!isLoaded) {
@@ -41,7 +39,7 @@ const SignUp = () => {
 
 
 
-  async function submit(e: React.FormEvent) {
+  async function submit(e: React.FormEvent<HTMLFormElement>) {
     e.preventDefault()
 
     if (!isLoaded) {
@@ -69,7 +67,7 @@ const SignUp = () => {
   }
 
 
-  async function onPressVerify(e: React.FocusEvent) {
+  async function onPressVerify(e: React.FormEvent<HTMLFormElement>) {
     e.preventDefault()
     if (!isLoaded) {
       return
