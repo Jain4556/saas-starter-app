@@ -11,7 +11,6 @@ const isPublicRoute = createRouteMatcher([
 export default clerkMiddleware(async (auth, req) => {
   const { userId } = await auth();
 
-  // Protect private routes
   if (!userId && !isPublicRoute(req)) {
     return NextResponse.redirect(new URL("/sign-in", req.url));
   }
@@ -28,26 +27,19 @@ export default clerkMiddleware(async (auth, req) => {
 
     // Prevent non-admin from accessing admin routes
     if (role !== "admin" && req.nextUrl.pathname.startsWith("/admin")) {
-      return NextResponse.redirect(new URL("/dashboard", req.url));
+      return NextResponse.redirect(new URL("/", req.url)); // changed
     }
 
-    // Redirect logged-in users away from public routes
-    if (isPublicRoute(req)) {
+    // Redirect logged-in users away from public auth pages only
+    if (
+      req.nextUrl.pathname.startsWith("/sign-in") ||
+      req.nextUrl.pathname.startsWith("/sign-up")
+    ) {
       return NextResponse.redirect(
-        new URL(
-          role === "admin" ? "/admin/dashboard" : "/dashboard",
-          req.url
-        )
+        new URL(role === "admin" ? "/admin" : "/", req.url)
       );
     }
   }
 
   return NextResponse.next();
 });
-
-export const config = {
-  matcher: [
-    '/((?!_next|[^?]*\\.(?:html?|css|js(?!on)|jpe?g|webp|png|gif|svg|ttf|woff2?|ico|csv|docx?|xlsx?|zip|webmanifest)).*)',
-    '/(api|trpc)(.*)',
-  ],
-};
