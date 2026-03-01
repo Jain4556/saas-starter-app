@@ -1,91 +1,79 @@
-// import { Webhook } from "lucide-react";
 import { Webhook } from "svix";
 import { headers } from "next/headers";
-import { WebhookEvent } from "@clerk/nextjs/server";
+import type { WebhookEvent } from "@clerk/nextjs/server";
 import prisma from "@/lib/prisma";
 
 export async function POST(req: Request) {
-    const WEBHOOK_SECRET = process.env.WEBHOOK_SECRET;
+  const WEBHOOK_SECRET = process.env.WEBHOOK_SECRET;
 
+  if (!WEBHOOK_SECRET) {
+    throw new Error("Missing WEBHOOK_SECRET in environment variables");
+  }
 
-    if (!WEBHOOK_SECRET) {
-        throw new Error("Please add webhook secret in env")
-    }
+  // 🔥 1️⃣ Read raw body FIRST (VERY IMPORTANT for Svix)
+  const body = await req.text();
 
-    const headerPayload = await headers();
-    const svix_id = headerPayload.get("svix-id")
-    const svix_timestamp = headerPayload.get("svix-timestamp")
-    const svix_signature = headerPayload.get("svix-signature")
+  // 🔥 2️⃣ Then read headers
+  const headerPayload = await headers();
 
+  const svix_id = headerPayload.get("svix-id");
+  const svix_timestamp = headerPayload.get("svix-timestamp");
+  const svix_signature = headerPayload.get("svix-signature");
 
-    if (!svix_id || !svix_timestamp || !svix_signature) {
-        return new Response("Error occured - No svix occured")
-    }   
+  if (!svix_id || !svix_timestamp || !svix_signature) {
+    return new Response("Missing Svix headers", { status: 400 });
+  }
 
-    // const payload = await req.json()
-    // const body = JSON.stringify(payload)
+  const wh = new Webhook(WEBHOOK_SECRET);
 
-    const body = await req.text()   // added this one
+  let evt: WebhookEvent;
 
-    const wh = new Webhook(WEBHOOK_SECRET);
+  try {
+    evt = wh.verify(body, {
+      "svix-id": svix_id,
+      "svix-timestamp": svix_timestamp,
+      "svix-signature": svix_signature,
+    }) as unknown as WebhookEvent;
 
-    let evt: WebhookEvent;
+    console.log("✅ Signature verified:", evt.type);
+  } catch (err: any) {
+    console.error("🔥 Signature verification failed:", err?.message);
+    return new Response("Invalid signature", { status: 400 });
+  }
 
+  // 🔥 3️⃣ Handle Clerk events
+  if (evt.type === "user.created") {
     try {
-        evt = wh.verify(body, {
-            "svix-id": svix_id,
-            "svix-timestamp": svix_timestamp,
-            "svix-signature": svix_signature,
-        }) as WebhookEvent;
-    } catch (err) {
-        console.error("Error verifying webhook", err)
-        return new Response("error occured", { status: 400 })
+      const { id, email_addresses, primary_email_address_id } = evt.data;
+
+      const primaryEmail = email_addresses.find(
+        (email: any) => email.id === primary_email_address_id
+      );
+
+
+      if (!primaryEmail) {
+        return new Response("Primary email not found", { status: 400 });
+      }
+
+      await prisma.user.upsert({
+        where: { id },
+        update: {},
+        create: {
+          id,
+          email: primaryEmail.email_address,
+          isSubscribed: false,
+        },
+      });
+
+      console.log("✅ User saved to database");
+
+      console.log("EMAIL ADDRESSES:", evt.data.email_addresses);
+console.log("PRIMARY ID:", evt.data.primary_email_address_id);
+    } catch (error) {
+      console.error("🔥 Database error:", error);
+      return new Response("Database error", { status: 500 });
     }
+  }
 
-
-
-
-    const { id } = evt.data
-    const eventType = evt.type
-
-
-    // logs
-
-    if (eventType === "user.created") {
-        try {
-            const { email_addresses, primary_email_address_id } = evt.data
-
-            const primaryEmail = email_addresses.find(
-                (email) => email.id === primary_email_address_id
-            )
-
-            if (!primaryEmail) {
-                return new Response("No primary email found", { status: 400 })
-            }
-
-            // create 
-
-            const newUser = await prisma.user.create({
-                data: {
-                    id: evt.data.id!,
-                    email: primaryEmail.email_address,
-                    isSubscribed: false
-                }
-            })
-            console.log("New User created", newUser);
-
-
-        } catch (error) {
-            return new Response("Error in creating user in database", { status: 400 })
-
-
-
-
-        }
-    }
-
-    return new Response("Webhook received successfully", { status: 200 })
-
+  return new Response("Webhook received successfully", { status: 200 });
 }
-
-
