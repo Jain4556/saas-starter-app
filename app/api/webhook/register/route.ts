@@ -5,7 +5,7 @@ import { WebhookEvent } from "@clerk/nextjs/server";
 import prisma from "@/lib/prisma";
 
 export async function POST(req: Request) {
-    const WEBHOOK_SECRET = process.env.WEBOOK_SECRET;
+    const WEBHOOK_SECRET = process.env.WEBHOOK_SECRET;
 
 
     if (!WEBHOOK_SECRET) {
@@ -20,10 +20,12 @@ export async function POST(req: Request) {
 
     if (!svix_id || !svix_timestamp || !svix_signature) {
         return new Response("Error occured - No svix occured")
-    }
+    }   
 
-    const payload = await req.json()
-    const body = JSON.stringify(payload)
+    // const payload = await req.json()
+    // const body = JSON.stringify(payload)
+
+    const body = await req.text()   // added this one
 
     const wh = new Webhook(WEBHOOK_SECRET);
 
