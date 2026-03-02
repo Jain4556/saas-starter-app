@@ -1,16 +1,25 @@
 generator client {
   provider = "prisma-client-js"
-  
 }
 
 datasource db {
   provider = "postgresql"
-
 }
 
 model User {
-  id           String  @id
-  email        String  @unique
-  isSubscribed Boolean @default(false)
-  subscriptionEnds  DateTime?   // 👈 ADD THIS
+  id                String   @id
+  email             String   @unique
+  isSubscribed      Boolean  @default(false)
+  subscriptionEnds  DateTime?
+  todos             Todo[]   // 👈 relation
+}
+
+model Todo {
+  id        String   @id @default(cuid())
+  title     String
+  completed Boolean  @default(false)
+  createdAt DateTime @default(now())
+
+  userId    String
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
 }
