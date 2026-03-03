@@ -5,94 +5,94 @@ import prisma from "@/lib/prisma";
 
 const ITEMS_PER_PAGE = 10
 
-export async function GET(req :NextRequest) {
+export async function GET(req: NextRequest) {
     const { userId } = await auth()
 
     if (!userId) {
         return NextResponse.json({ error: "unauthorized" }, { status: 401 })
-    }   
+    }
 
-   const {searchParams} =  new URL(req.url)
-   const page = parseInt(searchParams.get("page") || "1")
-   const search  = searchParams.get("search") || ""
+    const { searchParams } = new URL(req.url)
+    const page = parseInt(searchParams.get("page") || "1")
+    const search = searchParams.get("search") || ""
 
-   try {
-   const todos =  await prisma.todo.findMany({
-        where: {
+    try {
+        const todos = await prisma.todo.findMany({
+            where: {
 
-            userId,
-            title: {
-                contains: search,
-                mode: "insensitive"
+                userId,
+                title: {
+                    contains: search,
+                    mode: "insensitive"
+                }
+            },
+            orderBy: { createdAt: "desc" },
+            take: ITEMS_PER_PAGE,
+            skip: (page - 1) * ITEMS_PER_PAGE
+
+
+        })
+
+        const totalItems = await prisma.todo.count({
+            where: {
+                userId,
+                title: {
+                    contains: "search",
+                    mode: "insensitive"
+                }
             }
-        },
-        orderBy: {createdAt: "desc"},
-        take: ITEMS_PER_PAGE,
-        skip: (page - 1) * ITEMS_PER_PAGE
+        })
 
-        
-    })
+        const totalPages = Math.ceil(totalItems / ITEMS_PER_PAGE)
 
-    const totalItems  = await prisma.todo.count({
-        where: {
-            userId,
-            title: {
-                contains: "search",
-                mode: "insensitive"
-            }
-        }
-    })
-
-    const  totalPages = Math.ceil(totalItems / ITEMS_PER_PAGE)
-    
-    return NextResponse.json({
-        todos,
-        currentPage: page,
-        totalPages
-    })
+        return NextResponse.json({
+            todos,
+            currentPage: page,
+            totalPages
+        })
 
 
-   } catch (err) {
-      console.error("Error  updating subscription" ,err)
+    } catch (err) {
+        console.error("Error  updating subscription", err)
         return NextResponse.json(
-            {error: "Internal server error"},
-            {status: 500}
+            { error: "Internal server error" },
+            { status: 500 }
         )
-   }
+    }
 
 
 }
 
 export async function POST(req: NextRequest) {
-     const { userId } = await auth()
+    const { userId } = await auth()
 
     if (!userId) {
         return NextResponse.json({ error: "unauthorized" }, { status: 401 })
-    }       
+    }
 
-    
+
     const user = await prisma.user.findUnique({
-        where: {id: userId},
-        include: {todos: true}
+        where: { id: userId },
+        include: { todos: true }
     })
 
     console.log(user);
 
     if (!user) {
-        return NextResponse.json({error: "User not found"}, {status: 404})
+        return NextResponse.json({ error: "User not found" }, { status: 404 })
     }
 
-    if (!user.isSubscribed && user.todos.length >=3) {
+    if (!user.isSubscribed && user.todos.length >= 3) {
         return NextResponse.json({
             error: "Free users can only create upto 3 todos."
-        }, {status: 403})
+        }, { status: 403 })
     }
 
-    const {title} = await req.json()
+    const { title } = await req.json()
 
-   const todo =  await prisma.todo.create({
-        data: {title, userId}
+    const todo = await prisma.todo.create({
+        data: { title, userId }
     })
 
-    return NextResponse.json(todo, {status: 201})
+    return NextResponse.json(todo, { status: 201 })
 }
